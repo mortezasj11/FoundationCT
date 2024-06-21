@@ -1,0 +1,47 @@
+FROM nvidia/cuda:11.8.0-base-ubuntu20.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Install necessary packages and clean up
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  tzdata build-essential libgl1-mesa-glx libglib2.0-0 libgeos-dev python3-openslide \
+  curl wget git sudo vim htop ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# Add and configure user
+ARG USER_NAME="msalehjahromi"
+RUN adduser --disabled-password --gecos '' --shell /bin/bash ${USER_NAME}
+RUN echo "${USER_NAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USER_NAME}
+USER ${USER_NAME}
+ENV HOME=/home/${USER_NAME}
+RUN chmod 777 /home/${USER_NAME}
+WORKDIR /home/${USER_NAME}
+
+# Install Python 3, pip, and venv
+USER root
+RUN apt-key del 7fa2af80 && \
+    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub && \
+    apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv
+
+# Install Python packages using pip
+RUN pip install --upgrade pip
+RUN pip install \
+    torch \
+    torchvision \
+    omegaconf \
+    torchmetrics \
+    fvcore \
+    iopath \
+    xformers \
+    submitit 
+# pip install cuml-cu11 --extra-index-url https://pypi.nvidia.com
+# pip install --no-cache-dir --extra-index-url https://pypi.nvidia.com cuml-cu11
+
+# Environment variable
+ENV HDF5_USE_FILE_LOCKING=FALSE
+RUN chmod -R 777 /home/${USER_NAME}/

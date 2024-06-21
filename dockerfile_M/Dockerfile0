@@ -1,0 +1,68 @@
+FROM nvidia/cuda:11.8.0-base-ubuntu20.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  tzdata build-essential libgl1-mesa-glx libglib2.0-0 libgeos-dev python3-openslide \
+  curl wget git sudo vim htop ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+ARG USER_NAME="msalehjahromi"
+RUN adduser --disabled-password --gecos '' --shell /bin/bash ${USER_NAME}
+RUN echo "${USER_NAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USER_NAME}
+USER ${USER_NAME}
+ENV HOME=/home/${USER_NAME}
+RUN chmod 777 /home/${USER_NAME}
+WORKDIR /home/${USER_NAME}
+
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
+    bash ~/miniconda.sh -b -p $HOME/miniconda && \
+    rm ~/miniconda.sh
+
+# Initialize Conda
+RUN $HOME/miniconda/bin/conda init bash
+
+# Set PATH explicitly
+ENV PATH /home/${USER_NAME}/miniconda/bin:$PATH
+
+# Refresh shell
+SHELL ["/bin/bash", "-c"]
+
+RUN sudo rm /etc/apt/sources.list.d/cuda.list || true
+RUN sudo rm /etc/apt/sources.list.d/nvidia-ml.list || true
+
+
+RUN conda config --add channels conda-forge
+RUN conda config --set show_channel_urls yes
+
+RUN conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/
+RUN conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
+
+
+# Install the specific Python version 
+RUN conda install conda-build && \
+    conda create -y --name pythonDinov2 python=3.10 && \
+    conda clean -ya
+
+# Activate the environment and set the default environment for the user
+RUN echo "conda activate dinov2" >> ~/.bashrc
+
+# Install torch and torchvision first
+RUN pip install --extra-index-url https://download.pytorch.org/whl/cu118 \
+    torch \
+    torchvision
+
+# Install the remaining dependencies
+RUN pip install \
+    omegaconf \
+    torchmetrics \
+    fvcore \
+    iopath \
+    xformers \
+    submitit
+
+# Install cuml-cu11 separately to isolate the issue
+RUN pip install --extra-index-url https://pypi.nvidia.com \
+    cuml-cu11
+
+ENV HDF5_USE_FILE_LOCKING=FALSE
+RUN chmod -R 777 /home/${USER_NAME}/

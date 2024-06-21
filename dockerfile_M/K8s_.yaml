@@ -1,0 +1,54 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: msalehjahromi-gpu-job
+  namespace: yn-gpu-workload
+  labels:
+      k8s-user: msalehjahromi
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 60
+  template:
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        "nvidia.com/gpu.present": "true"
+      securityContext:
+        runAsUser: 271030
+        runAsGroup: 600651
+        fsGroup: 600651
+      volumes:
+        # - name: shm
+        #   emptyDir:
+        #     medium: Memory
+        #     sizeLimit: '68719476736'
+        - name: home
+          persistentVolumeClaim:
+            claimName: msalehjahromi-gpu-home
+      containers:
+      - name: main
+        image: hpcharbor.mdanderson.edu/mori/python:msalehjahromi
+        command: ["python", "/rsrch1/ip/msalehjahromi/codes/dinov2-main/####################################.py"]
+        args: ["--data_root", "/rsrch1/ip/msalehjahromi/"]
+        workingDir: "/rsrch1/ip/msalehjahromi"
+        # env:
+        # - name: HOME
+        #   value: "/rsrch1/ip/msalehjahromi"
+        volumeMounts:
+          # - name: shm
+          #   mountPath: "/dev/shm"
+          - name: home
+            mountPath: "/rsrch1/ip/msalehjahromi"
+        resources:
+          requests:
+            cpu: "128"
+            memory: "16G"
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "128"
+            memory: "16G"
+            nvidia.com/gpu: "1"
+        imagePullPolicy: IfNotPresent
+      restartPolicy: Never
+
